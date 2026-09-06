@@ -69,8 +69,13 @@ function Repositories() {
         "Content-Type": "application/json",
       };
 
-      if (tokenOverride && tokenOverride.trim()) {
-        headers["Authorization"] = `Bearer ${tokenOverride.trim()}`;
+      let activeToken = tokenOverride?.trim();
+      if (!activeToken && typeof window !== "undefined") {
+        activeToken = localStorage.getItem("github_token") || "";
+      }
+
+      if (activeToken) {
+        headers["Authorization"] = `Bearer ${activeToken}`;
       }
 
       const res = await fetch(`/api/repos?_t=${Date.now()}`, {
@@ -99,20 +104,25 @@ function Repositories() {
   };
 
   useEffect(() => {
-    fetchRepositories();
+    const savedToken = typeof window !== "undefined" ? localStorage.getItem("github_token") || "" : "";
+    if (savedToken) setCustomToken(savedToken);
+    fetchRepositories(savedToken);
   }, []);
 
   const handleSaveToken = (e: React.FormEvent) => {
     e.preventDefault();
+    const token = customToken.trim();
     if (typeof window !== "undefined") {
-      if (customToken.trim()) {
-        localStorage.setItem("github_token", customToken.trim());
+      if (token) {
+        localStorage.setItem("github_token", token);
+        document.cookie = `github_token=${encodeURIComponent(token)}; Path=/; SameSite=Lax; Max-Age=2592000`;
       } else {
         localStorage.removeItem("github_token");
+        document.cookie = "github_token=; Path=/; SameSite=Lax; Max-Age=0";
       }
     }
     setShowTokenInput(false);
-    fetchRepositories(customToken.trim());
+    fetchRepositories(token);
   };
 
   const currentTabList =
@@ -183,7 +193,10 @@ function Repositories() {
                 type="button"
                 variant="secondary"
                 onClick={() => {
-                  if (typeof window !== "undefined") localStorage.removeItem("github_token");
+                  if (typeof window !== "undefined") {
+                    localStorage.removeItem("github_token");
+                    document.cookie = "github_token=; Path=/; SameSite=Lax; Max-Age=0";
+                  }
                   setCustomToken("");
                   setShowTokenInput(false);
                   fetchRepositories("");
@@ -336,11 +349,17 @@ function Repositories() {
           <div className="h-12 w-12 rounded-2xl bg-muted text-muted-foreground mx-auto grid place-items-center mb-3">
             <GitBranch className="h-6 w-6" />
           </div>
-          <h3 className="font-semibold text-lg">No repositories found in this tab</h3>
+          <h3 className="font-semibold text-lg">
+            {searchTerm || selectedLanguage !== "All"
+              ? "No repositories found"
+              : "No repositories created yet"}
+          </h3>
           <p className="text-sm text-muted-foreground mt-1">
             {searchTerm || selectedLanguage !== "All"
               ? "Try adjusting your search or language filter."
-              : `No repositories found under "${activeTab}".`}
+              : allRepos.length === 0
+                ? "There are no repositories created yet for this account."
+                : `No repositories found under "${activeTab}".`}
           </p>
         </Card>
       )}

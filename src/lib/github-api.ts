@@ -147,31 +147,6 @@ export async function fetchGitHubUserRepos(token: string): Promise<{
   const rawOwned = ownedRes.ok ? ((await ownedRes.json()) as any[]) : [];
   let rawCollab = collabRes.ok ? ((await collabRes.json()) as any[]) : [];
 
-  // Fallback: If OAuth token is subject to organization/third-party collaborator restrictions,
-  // query collaborator repos using server PAT if available
-  const envToken = getEnv("GITHUB_ACCESS_TOKEN") || getEnv("GITHUB_TOKEN");
-  if (rawCollab.length === 0 && envToken && sanitizeToken(envToken) !== cleanToken) {
-    try {
-      const patCollabRes = await fetch(
-        "https://api.github.com/user/repos?sort=updated&per_page=100&affiliation=collaborator",
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/vnd.github+json",
-            Authorization: `Bearer ${sanitizeToken(envToken)}`,
-            "User-Agent": "GitInsight-AI",
-            "X-GitHub-Api-Version": "2022-11-28",
-          },
-        },
-      );
-      if (patCollabRes.ok) {
-        const patCollab = (await patCollabRes.json()) as any[];
-        if (patCollab.length > 0) {
-          rawCollab = patCollab;
-        }
-      }
-    } catch {}
-  }
 
   const ownedRepos: SimplifiedRepo[] = rawOwned.map((r) => formatRepo(r, false));
   const collaboratedRepos: SimplifiedRepo[] = rawCollab.map((r) => formatRepo(r, true));
