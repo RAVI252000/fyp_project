@@ -8,6 +8,7 @@ import { handleGetDashboard } from "./lib/dashboard-api";
 import { handleGetRepoInsights } from "./lib/repo-insights";
 import { handleGetRepoDetail } from "./lib/repo-detail-api";
 import { handleGetTeamAnalytics } from "./lib/github-team-analytics-api";
+import { handleGetTeamProjects } from "./lib/github-team-projects-api";
 import { handleGetGlobalSearch, handleGetNotifications } from "./lib/github-global-api";
 import {
   handleGitHubLogin,
@@ -73,6 +74,9 @@ export default {
       }
       if (url.pathname === "/api/team/analytics") {
         return await handleGetTeamAnalytics(request);
+      }
+      if (url.pathname === "/api/team/projects") {
+        return await handleGetTeamProjects(request);
       }
       if (url.pathname === "/api/search") {
         return await handleGetGlobalSearch(request);

@@ -9,6 +9,8 @@ export interface SimplifiedRepo {
   stargazers_count: number;
   forks_count: number;
   updated_at: string;
+  pushed_at?: string | null;
+  archived?: boolean;
   html_url: string;
   default_branch: string;
   open_issues_count: number;
@@ -82,6 +84,8 @@ function formatRepo(raw: any, isCollaborator: boolean): SimplifiedRepo {
     stargazers_count: raw.stargazers_count ?? 0,
     forks_count: raw.forks_count ?? 0,
     updated_at: raw.updated_at,
+    pushed_at: raw.pushed_at ?? null,
+    archived: Boolean(raw.archived),
     html_url: raw.html_url,
     default_branch: raw.default_branch || "main",
     open_issues_count: raw.open_issues_count ?? 0,
