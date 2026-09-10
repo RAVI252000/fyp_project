@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import type { GitHubUserProfile } from "@/lib/github-oauth";
+import { applyTheme, loadSettings, saveTheme, type AppSettings } from "@/lib/settings-service";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -30,20 +31,28 @@ const nav = [
 ] as const;
 
 function useTheme() {
+  const [theme, setTheme] = useState<AppSettings["theme"]>("system");
   const [dark, setDark] = useState(false);
   useEffect(() => {
-    const stored = typeof window !== "undefined" ? localStorage.getItem("theme") : null;
-    const prefers =
-      typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const isDark = stored ? stored === "dark" : prefers;
-    setDark(isDark);
-    document.documentElement.classList.toggle("dark", isDark);
-  }, []);
+    const currentTheme = loadSettings().theme;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const sync = (nextTheme: AppSettings["theme"]) => {
+      setTheme(nextTheme);
+      setDark(nextTheme === "dark" || (nextTheme === "system" && media.matches));
+      applyTheme(nextTheme);
+    };
+    const handleThemeChange = (event: Event) => sync((event as CustomEvent<AppSettings["theme"]>).detail);
+    const handleSystemChange = () => { if (theme === "system") sync("system"); };
+    sync(currentTheme);
+    window.addEventListener("gitinsight-theme-change", handleThemeChange);
+    media.addEventListener("change", handleSystemChange);
+    return () => {
+      window.removeEventListener("gitinsight-theme-change", handleThemeChange);
+      media.removeEventListener("change", handleSystemChange);
+    };
+  }, [theme]);
   const toggle = () => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
+    saveTheme(dark ? "light" : "dark");
   };
   return { dark, toggle };
 }

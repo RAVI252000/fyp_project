@@ -23,4 +23,15 @@ export const defaultSettings: AppSettings = {
 const key = "gitinsight-settings";
 export function loadSettings(): AppSettings { if (typeof window === "undefined") return defaultSettings; try { return { ...defaultSettings, ...JSON.parse(localStorage.getItem(key) || "{}") }; } catch { return defaultSettings; } }
 export function saveSettings(settings: AppSettings) { if (typeof window !== "undefined") localStorage.setItem(key, JSON.stringify(settings)); }
-export function applyTheme(theme: AppSettings["theme"]) { if (typeof document === "undefined") return; const dark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches); document.documentElement.classList.toggle("dark", dark); }
+export function applyTheme(theme: AppSettings["theme"]) {
+  if (typeof document === "undefined") return;
+  const dark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.classList.toggle("dark", dark);
+  document.documentElement.dataset.theme = theme;
+  window.dispatchEvent(new CustomEvent("gitinsight-theme-change", { detail: theme }));
+}
+export function saveTheme(theme: AppSettings["theme"]) {
+  const settings = loadSettings();
+  saveSettings({ ...settings, theme });
+  applyTheme(theme);
+}

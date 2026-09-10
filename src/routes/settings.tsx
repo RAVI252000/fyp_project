@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
 import { Badge, Button, Card } from "@/components/ui-bits";
-import { applyTheme, defaultSettings, loadSettings, saveSettings, type AppSettings } from "@/lib/settings-service";
+import { applyTheme, defaultSettings, loadSettings, saveSettings, saveTheme, type AppSettings } from "@/lib/settings-service";
 import { Bell, Download, Globe, Github, Mic, Save, Sparkles, Sun, User } from "lucide-react";
 
 export const Route = createFileRoute("/settings")({ head: () => ({ meta: [{ title: "Settings · GitInsight AI" }] }), component: SettingsPage });
@@ -10,7 +10,7 @@ const input = "h-9 rounded-lg border border-border bg-card px-3 text-sm";
 function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings); const [saved, setSaved] = useState(false);
   useEffect(() => { const current = loadSettings(); setSettings(current); applyTheme(current.theme); }, []);
-  const update = <K extends keyof AppSettings>(section: K, value: AppSettings[K]) => setSettings((current) => ({ ...current, [section]: value }));
+  const update = <K extends keyof AppSettings>(section: K, value: AppSettings[K]) => { setSettings((current) => ({ ...current, [section]: value })); if (section === "theme") saveTheme(value as AppSettings["theme"]); };
   const save = () => { saveSettings(settings); applyTheme(settings.theme); setSaved(true); setTimeout(() => setSaved(false), 1800); };
   return <AppShell><PageHeader title="Settings" subtitle="Configure GitInsight AI to fit your workflow." actions={<Button onClick={save}><Save className="h-4 w-4" /> {saved ? "Saved" : "Save Changes"}</Button>} /><div className="grid gap-5 md:grid-cols-2">
     <SettingsCard icon={<Github />} title="GitHub Connection" status={settings.github.connected ? "Connected" : "Disconnected"}><p className="text-sm text-muted-foreground">Account: @{settings.github.username}</p><div className="mt-3 space-y-2">{settings.github.repositories.map((repo, index) => <label key={repo.name} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={repo.connected} onChange={(e) => update("github", { ...settings.github, repositories: settings.github.repositories.map((item, itemIndex) => itemIndex === index ? { ...item, connected: e.target.checked } : item) })} /> {repo.name}</label>)}</div><p className="text-xs text-muted-foreground mt-3">Repository access, pull requests, issues, and commit data are scoped through GitHub OAuth.</p></SettingsCard>
