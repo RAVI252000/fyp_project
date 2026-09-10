@@ -7,6 +7,7 @@ import { handleGetRepos } from "./lib/github-api";
 import { handleGetDashboard } from "./lib/dashboard-api";
 import { handleGetRepoInsights } from "./lib/repo-insights";
 import { handleGetRepoDetail } from "./lib/repo-detail-api";
+import { handleGetTeamAnalytics } from "./lib/github-team-analytics-api";
 import {
   handleGitHubLogin,
   handleGitHubCallback,
@@ -68,6 +69,9 @@ export default {
       }
       if (url.pathname === "/api/dashboard") {
         return await handleGetDashboard(request);
+      }
+      if (url.pathname === "/api/team/analytics") {
+        return await handleGetTeamAnalytics(request);
       }
       if (url.pathname === "/api/repos") {
         return await handleGetRepos(request);

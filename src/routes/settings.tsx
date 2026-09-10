@@ -1,88 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
-import { Card, Badge, Button } from "@/components/ui-bits";
-import { Github, Sparkles, Sun, Mic, Bell, Globe, Download, User } from "lucide-react";
+import { Badge, Button, Card } from "@/components/ui-bits";
+import { applyTheme, defaultSettings, loadSettings, saveSettings, type AppSettings } from "@/lib/settings-service";
+import { Bell, Download, Globe, Github, Mic, Save, Sparkles, Sun, User } from "lucide-react";
 
-export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "Settings · GitInsight AI" }] }),
-  component: SettingsPage,
-});
-
-const sections = [
-  {
-    icon: Github,
-    title: "GitHub Connection",
-    desc: "Manage OAuth, installed repositories, and webhooks.",
-    status: "Connected",
-  },
-  {
-    icon: Sparkles,
-    title: "AI Model",
-    desc: "Choose the AI model powering summaries and insights.",
-    status: "GPT-4o",
-  },
-  { icon: Sun, title: "Theme", desc: "Light, dark, or system preference.", status: "System" },
-  {
-    icon: Mic,
-    title: "Voice Settings",
-    desc: "Wake word, voice, and playback preferences.",
-    status: "Enabled",
-  },
-  {
-    icon: Bell,
-    title: "Notifications",
-    desc: "Email, push, Slack alerts.",
-    status: "Email + Slack",
-  },
-  {
-    icon: Globe,
-    title: "Language",
-    desc: "Interface and AI response language.",
-    status: "English (US)",
-  },
-  {
-    icon: Download,
-    title: "Export Settings",
-    desc: "Auto-export weekly reports to storage.",
-    status: "Off",
-  },
-  { icon: User, title: "Profile", desc: "Name, avatar, timezone, and role.", status: "Durga · PM" },
-];
-
+export const Route = createFileRoute("/settings")({ head: () => ({ meta: [{ title: "Settings · GitInsight AI" }] }), component: SettingsPage });
+const input = "h-9 rounded-lg border border-border bg-card px-3 text-sm";
 function SettingsPage() {
-  return (
-    <AppShell>
-      <PageHeader title="Settings" subtitle="Configure GitInsight AI to fit your workflow." />
-
-      <div className="grid gap-5 md:grid-cols-2">
-        {sections.map((s) => {
-          const Icon = s.icon;
-          return (
-            <Card key={s.title} className="p-5">
-              <div className="flex items-start gap-4">
-                <div className="h-10 w-10 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0">
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <div className="font-semibold truncate">{s.title}</div>
-                    <Badge tone="brand">{s.status}</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">{s.desc}</p>
-                  <div className="mt-3 flex gap-2">
-                    <Button variant="secondary" className="h-9 px-3">
-                      Configure
-                    </Button>
-                    <Button variant="ghost" className="h-9 px-3">
-                      Learn more
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-    </AppShell>
-  );
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings); const [saved, setSaved] = useState(false);
+  useEffect(() => { const current = loadSettings(); setSettings(current); applyTheme(current.theme); }, []);
+  const update = <K extends keyof AppSettings>(section: K, value: AppSettings[K]) => setSettings((current) => ({ ...current, [section]: value }));
+  const save = () => { saveSettings(settings); applyTheme(settings.theme); setSaved(true); setTimeout(() => setSaved(false), 1800); };
+  return <AppShell><PageHeader title="Settings" subtitle="Configure GitInsight AI to fit your workflow." actions={<Button onClick={save}><Save className="h-4 w-4" /> {saved ? "Saved" : "Save Changes"}</Button>} /><div className="grid gap-5 md:grid-cols-2">
+    <SettingsCard icon={<Github />} title="GitHub Connection" status={settings.github.connected ? "Connected" : "Disconnected"}><p className="text-sm text-muted-foreground">Account: @{settings.github.username}</p><div className="mt-3 space-y-2">{settings.github.repositories.map((repo, index) => <label key={repo.name} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={repo.connected} onChange={(e) => update("github", { ...settings.github, repositories: settings.github.repositories.map((item, itemIndex) => itemIndex === index ? { ...item, connected: e.target.checked } : item) })} /> {repo.name}</label>)}</div><p className="text-xs text-muted-foreground mt-3">Repository access, pull requests, issues, and commit data are scoped through GitHub OAuth.</p></SettingsCard>
+    <SettingsCard icon={<Sparkles />} title="AI Model" status={settings.ai.model}><div className="grid gap-3"><select className={input} value={settings.ai.provider} onChange={(e) => update("ai", { ...settings.ai, provider: e.target.value })}><option>OpenAI</option><option>Anthropic</option><option>Local</option></select><select className={input} value={settings.ai.model} onChange={(e) => update("ai", { ...settings.ai, model: e.target.value })}><option>GPT-5.6 Luna</option><option>Claude Sonnet</option><option>Local model</option></select><select className={input} value={settings.ai.responseStyle} onChange={(e) => update("ai", { ...settings.ai, responseStyle: e.target.value as AppSettings["ai"]["responseStyle"] })}><option>Concise</option><option>Balanced</option><option>Detailed</option></select></div></SettingsCard>
+    <SettingsCard icon={<Sun />} title="Theme" status={settings.theme}><div className="flex gap-4 text-sm">{["light", "dark", "system"].map((theme) => <label key={theme} className="flex items-center gap-2 capitalize"><input type="radio" name="theme" checked={settings.theme === theme} onChange={() => update("theme", theme as AppSettings["theme"])} /> {theme}</label>)}</div></SettingsCard>
+    <SettingsCard icon={<Mic />} title="Voice Settings" status={settings.voice.enabled ? "Enabled" : "Disabled"}><div className="grid gap-3"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.voice.enabled} onChange={(e) => update("voice", { ...settings.voice, enabled: e.target.checked })} /> Voice assistant enabled</label><input className={input} value={settings.voice.wakeWord} onChange={(e) => update("voice", { ...settings.voice, wakeWord: e.target.value })} placeholder="Wake word" /><select className={input} value={settings.voice.voice} onChange={(e) => update("voice", { ...settings.voice, voice: e.target.value })}><option>Samantha</option><option>Alex</option><option>Daniel</option></select><label className="text-sm">Speech speed<input className="w-full" type="range" min="0.5" max="2" step="0.1" value={settings.voice.speed} onChange={(e) => update("voice", { ...settings.voice, speed: Number(e.target.value) })} /></label></div></SettingsCard>
+    <SettingsCard icon={<Bell />} title="Notifications" status="Configurable"><div className="grid gap-2 text-sm">{[["email", "Email notifications"], ["push", "Push notifications"], ["slack", "Slack notifications"]].map(([key, label]) => <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={settings.notifications[key as "email" | "push" | "slack"]} onChange={(e) => update("notifications", { ...settings.notifications, [key]: e.target.checked })} /> {label}</label>)}<div className="flex gap-2 mt-2"><input className={input} type="time" value={settings.notifications.quietFrom} onChange={(e) => update("notifications", { ...settings.notifications, quietFrom: e.target.value })} /><input className={input} type="time" value={settings.notifications.quietTo} onChange={(e) => update("notifications", { ...settings.notifications, quietTo: e.target.value })} /></div></div></SettingsCard>
+    <SettingsCard icon={<Globe />} title="Language" status={settings.language.interface}><div className="grid gap-3"><select className={input} value={settings.language.interface} onChange={(e) => update("language", { ...settings.language, interface: e.target.value })}><option>English (US)</option><option>English (UK)</option></select><select className={input} value={settings.language.response} onChange={(e) => update("language", { ...settings.language, response: e.target.value })}><option>English</option><option>Hindi</option><option>Telugu</option></select></div></SettingsCard>
+    <SettingsCard icon={<Download />} title="Export Settings" status={settings.export.automatic ? settings.export.frequency : "Off"}><div className="grid gap-3"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.export.automatic} onChange={(e) => update("export", { ...settings.export, automatic: e.target.checked })} /> Automatic reports</label><select className={input} value={settings.export.frequency} onChange={(e) => update("export", { ...settings.export, frequency: e.target.value as AppSettings["export"]["frequency"] })}><option>Daily</option><option>Weekly</option><option>Monthly</option></select><select className={input} value={settings.export.destination} onChange={(e) => update("export", { ...settings.export, destination: e.target.value })}><option>Local download</option><option>Google Drive</option><option>Other integration</option></select></div></SettingsCard>
+    <SettingsCard icon={<User />} title="Profile" status={`${settings.profile.displayName} · ${settings.profile.role}`}><div className="grid gap-3"><input className={input} value={settings.profile.displayName} onChange={(e) => update("profile", { ...settings.profile, displayName: e.target.value })} placeholder="Display name" /><input className={input} value={settings.profile.username} onChange={(e) => update("profile", { ...settings.profile, username: e.target.value })} placeholder="GitHub username" /><select className={input} value={settings.profile.role} onChange={(e) => update("profile", { ...settings.profile, role: e.target.value })}><option>Project Manager</option><option>Developer</option><option>QA Engineer</option></select><input className={input} value={settings.profile.timezone} onChange={(e) => update("profile", { ...settings.profile, timezone: e.target.value })} /></div></SettingsCard>
+  </div></AppShell>;
 }
+function SettingsCard({ icon, title, status, children }: { icon: React.ReactNode; title: string; status: string; children: React.ReactNode }) { return <Card className="p-5"><div className="flex items-start gap-4"><div className="h-10 w-10 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0">{icon}</div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><div className="font-semibold">{title}</div><Badge tone="brand">{status}</Badge></div><div className="mt-4">{children}</div></div></div></Card>; }

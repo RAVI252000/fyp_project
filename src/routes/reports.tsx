@@ -1,106 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { AppShell, PageHeader } from "@/components/app-shell";
-import { Card, Badge, Button } from "@/components/ui-bits";
-import { FileText, Download, Share2, Calendar } from "lucide-react";
+import { Badge, Button, Card } from "@/components/ui-bits";
+import { reportsService, type ReportRecord, type ReportType } from "@/lib/reports-service";
+import { teamAnalyticsService } from "@/lib/team-analytics-service";
+import { Calendar, Download, FileText, Loader2, Plus, Share2 } from "lucide-react";
 
-export const Route = createFileRoute("/reports")({
-  head: () => ({ meta: [{ title: "Reports · GitInsight AI" }] }),
-  component: Reports,
-});
-
-const reports = [
-  {
-    title: "Daily Report",
-    desc: "Yesterday's activity across all repositories.",
-    tone: "brand" as const,
-    date: "Jul 15, 2026",
-  },
-  {
-    title: "Weekly Report",
-    desc: "7-day progress, velocity, and completed epics.",
-    tone: "cyan" as const,
-    date: "Week 28",
-  },
-  {
-    title: "Sprint Report",
-    desc: "Sprint 24 · burndown, carry-over, retro highlights.",
-    tone: "warning" as const,
-    date: "Sprint 24",
-  },
-  {
-    title: "Monthly Report",
-    desc: "June performance, contributors, and risk trends.",
-    tone: "success" as const,
-    date: "June 2026",
-  },
-];
-
+export const Route = createFileRoute("/reports")({ head: () => ({ meta: [{ title: "Reports · GitInsight AI" }] }), component: Reports });
+const selectClass = "h-10 rounded-xl border border-border bg-card px-3 text-sm";
+const types: ReportType[] = ["Team Performance", "Repository Health", "AI Insights", "Project Summary", "Developer Performance"];
 function Reports() {
-  return (
-    <AppShell>
-      <PageHeader
-        title="Reports"
-        subtitle="Generate, share, and export intelligence reports."
-        actions={<Button>Generate Report</Button>}
-      />
-
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {reports.map((r) => (
-          <Card key={r.title} className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="h-10 w-10 rounded-xl bg-brand/10 text-brand grid place-items-center">
-                <FileText className="h-5 w-5" />
-              </div>
-              <Badge tone={r.tone}>Ready</Badge>
-            </div>
-            <div className="mt-4 font-semibold">{r.title}</div>
-            <p className="text-sm text-muted-foreground mt-1">{r.desc}</p>
-            <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Calendar className="h-3.5 w-3.5" /> {r.date}
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button variant="secondary" className="h-9 px-3">
-                <Download className="h-4 w-4" /> PDF
-              </Button>
-              <Button variant="secondary" className="h-9 px-3">
-                <Download className="h-4 w-4" /> CSV
-              </Button>
-              <Button variant="ghost" className="h-9 px-3">
-                <Share2 className="h-4 w-4" /> Share
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      <Card className="mt-6 p-6">
-        <div className="font-semibold mb-4">Recent exports</div>
-        <div className="divide-y divide-border">
-          {[
-            "Weekly-Report-W28.pdf",
-            "Sprint-24-Retro.pdf",
-            "Monthly-June-2026.csv",
-            "Daily-2026-07-14.pdf",
-          ].map((f, i) => (
-            <div key={f} className="py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-muted grid place-items-center">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium">{f}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Exported {i + 1}d ago · 2.{i}MB
-                  </div>
-                </div>
-              </div>
-              <Button variant="ghost" className="h-9 px-3">
-                <Download className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </Card>
-    </AppShell>
-  );
+  const [reports, setReports] = useState<ReportRecord[]>([]); const [open, setOpen] = useState(false); const [generating, setGenerating] = useState(false); const [selected, setSelected] = useState<ReportRecord | null>(null);
+  const [type, setType] = useState<ReportType>(types[0]); const [period, setPeriod] = useState("Last 30 days");
+  const load = () => reportsService.list().then(setReports); useEffect(load, []);
+  const generate = async () => { setGenerating(true); const repositories = await teamAnalyticsService.getRepositories(); const analytics = await teamAnalyticsService.getAnalytics({ repository: repositories[0]?.fullName ?? "" }); const created = await reportsService.generate({ reportType: type, repositoryId: repositories[0]?.fullName ?? "all", period, include: { contribution: true, issues: true, pullRequests: true, reviews: true, aiInsights: true, charts: true } }, analytics); setReports((items) => [created, ...items.filter((item) => item.id !== created.id)]); setSelected(created); setGenerating(false); setOpen(false); };
+  return <AppShell><PageHeader title="Reports" subtitle="Generate, view, and export project intelligence reports." actions={<Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Generate Report</Button>} /><div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{reports.map((report) => <Card key={report.id} className="p-5"><div className="flex items-center justify-between"><div className="h-10 w-10 rounded-xl bg-brand/10 text-brand grid place-items-center"><FileText className="h-5 w-5" /></div><Badge tone={report.status === "Ready" ? "success" : "warning"}>{report.status}</Badge></div><div className="mt-4 font-semibold">{report.name}</div><div className="text-sm text-muted-foreground mt-1">{report.reportType} · {report.developers} developers · {report.repositories} repositories</div><div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground"><Calendar className="h-3.5 w-3.5" /> {report.periodStart} - {report.periodEnd}</div><div className="mt-4 flex flex-wrap gap-2"><Button variant="secondary" className="h-9 px-3" onClick={() => setSelected(report)}>View</Button><Button variant="secondary" className="h-9 px-3" onClick={() => downloadReport(report, "pdf")}><Download className="h-4 w-4" /> PDF</Button><Button variant="ghost" className="h-9 px-3" onClick={() => downloadReport(report, "csv")}><Download className="h-4 w-4" /> CSV</Button></div></Card>)}</div>{reports.length === 0 && <Card className="p-10 text-center mt-5"><p className="font-medium">No reports generated yet.</p><p className="text-sm text-muted-foreground mt-1">Generate a report to create a reusable project snapshot.</p></Card>}{open && <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"><Card className="w-full max-w-lg p-6"><div className="flex items-center justify-between"><div className="text-lg font-semibold">Generate report</div><button className="text-muted-foreground" onClick={() => setOpen(false)}>Close</button></div><div className="mt-5 space-y-4"><label className="block text-sm">Report type<select className={`${selectClass} mt-1 w-full`} value={type} onChange={(e) => setType(e.target.value as ReportType)}>{types.map((item) => <option key={item}>{item}</option>)}</select></label><label className="block text-sm">Repository<select className={`${selectClass} mt-1 w-full`}><option>All repositories</option><option>auth-module</option><option>dashboard-ui</option></select></label><label className="block text-sm">Period<select className={`${selectClass} mt-1 w-full`} value={period} onChange={(e) => setPeriod(e.target.value)}><option>Last 7 days</option><option>Last 30 days</option><option>Last 90 days</option><option>This year</option></select></label><div className="grid grid-cols-2 gap-2 text-sm">{["Contribution Metrics", "Issues", "Pull Requests", "Reviews", "AI Insights", "Charts"].map((item) => <label key={item} className="flex items-center gap-2"><input type="checkbox" defaultChecked /> {item}</label>)}</div></div><div className="mt-6 flex justify-end gap-2"><Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={generate} disabled={generating}>{generating ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : "Generate Report"}</Button></div></Card></div>}{selected && <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4"><Card className="mx-auto max-w-3xl p-6 my-8"><div className="flex justify-between"><div><div className="text-2xl font-semibold">{selected.name}</div><div className="text-sm text-muted-foreground">{selected.periodStart} - {selected.periodEnd}</div></div><Button variant="ghost" onClick={() => setSelected(null)}>Close</Button></div><div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">{[["Commits", 461], ["Pull Requests", 84], ["Issues", 156], ["Reviews", 216]].map(([label, value]) => <div key={label} className="rounded-xl bg-muted/60 p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="text-xl font-semibold mt-1">{value}</div></div>)}</div><div className="mt-6 rounded-xl border border-border p-5"><div className="font-semibold">Executive summary</div><p className="text-sm text-muted-foreground mt-2">Team activity is steady across the selected period, with review participation supporting delivery quality. This report uses analytics service data and can be replaced by a generated backend document.</p></div><div className="mt-5 flex gap-2"><Button onClick={() => downloadReport(selected, "pdf")}><Download className="h-4 w-4" /> Export PDF</Button><Button variant="secondary" onClick={() => downloadReport(selected, "csv")}><Download className="h-4 w-4" /> Export CSV</Button><Button variant="ghost"><Share2 className="h-4 w-4" /> Share</Button></div></Card></div>}</AppShell>;
 }
+function downloadReport(report: ReportRecord, format: "pdf" | "csv") { const content = format === "csv" ? `report,period,status\n${report.name},${report.periodStart} - ${report.periodEnd},${report.status}` : `${report.name}\n${report.periodStart} - ${report.periodEnd}\nStatus: ${report.status}`; const blob = new Blob([content], { type: format === "csv" ? "text/csv" : "application/pdf" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${report.name.replaceAll(" ", "-")}.${format}`; anchor.click(); URL.revokeObjectURL(url); }

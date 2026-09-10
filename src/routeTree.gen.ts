@@ -18,6 +18,7 @@ import { Route as AiInsightsRouteImport } from './routes/ai-insights'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RepositoriesIndexRouteImport } from './routes/repositories.index'
 import { Route as RepositoriesIdRouteImport } from './routes/repositories.$id'
+import { Route as TeamDevelopersIdRouteImport } from './routes/team.developers.$id'
 
 const VoiceRoute = VoiceRouteImport.update({
   id: '/voice',
@@ -64,6 +65,11 @@ const RepositoriesIdRoute = RepositoriesIdRouteImport.update({
   path: '/repositories/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TeamDevelopersIdRoute = TeamDevelopersIdRouteImport.update({
+  id: '/developers/$id',
+  path: '/developers/$id',
+  getParentRoute: () => TeamRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -71,10 +77,11 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
-  '/team': typeof TeamRoute
+  '/team': typeof TeamRouteWithChildren
   '/voice': typeof VoiceRoute
   '/repositories/$id': typeof RepositoriesIdRoute
   '/repositories/': typeof RepositoriesIndexRoute
+  '/team/developers/$id': typeof TeamDevelopersIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -82,10 +89,11 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
-  '/team': typeof TeamRoute
+  '/team': typeof TeamRouteWithChildren
   '/voice': typeof VoiceRoute
   '/repositories/$id': typeof RepositoriesIdRoute
   '/repositories': typeof RepositoriesIndexRoute
+  '/team/developers/$id': typeof TeamDevelopersIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -94,10 +102,11 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
-  '/team': typeof TeamRoute
+  '/team': typeof TeamRouteWithChildren
   '/voice': typeof VoiceRoute
   '/repositories/$id': typeof RepositoriesIdRoute
   '/repositories/': typeof RepositoriesIndexRoute
+  '/team/developers/$id': typeof TeamDevelopersIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/voice'
     | '/repositories/$id'
     | '/repositories/'
+    | '/team/developers/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/voice'
     | '/repositories/$id'
     | '/repositories'
+    | '/team/developers/$id'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/voice'
     | '/repositories/$id'
     | '/repositories/'
+    | '/team/developers/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -141,7 +153,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
-  TeamRoute: typeof TeamRoute
+  TeamRoute: typeof TeamRouteWithChildren
   VoiceRoute: typeof VoiceRoute
   RepositoriesIdRoute: typeof RepositoriesIdRoute
   RepositoriesIndexRoute: typeof RepositoriesIndexRoute
@@ -212,8 +224,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RepositoriesIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/team/developers/$id': {
+      id: '/team/developers/$id'
+      path: '/developers/$id'
+      fullPath: '/team/developers/$id'
+      preLoaderRoute: typeof TeamDevelopersIdRouteImport
+      parentRoute: typeof TeamRoute
+    }
   }
 }
+
+interface TeamRouteChildren {
+  TeamDevelopersIdRoute: typeof TeamDevelopersIdRoute
+}
+
+const TeamRouteChildren: TeamRouteChildren = {
+  TeamDevelopersIdRoute: TeamDevelopersIdRoute,
+}
+
+const TeamRouteWithChildren = TeamRoute._addFileChildren(TeamRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -221,7 +250,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
-  TeamRoute: TeamRoute,
+  TeamRoute: TeamRouteWithChildren,
   VoiceRoute: VoiceRoute,
   RepositoriesIdRoute: RepositoriesIdRoute,
   RepositoriesIndexRoute: RepositoriesIndexRoute,
