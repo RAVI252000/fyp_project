@@ -30,6 +30,13 @@ const nav = [
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
+type SearchResult = { id: number; title: string; description?: string | null; url: string; avatarUrl?: string; type: string };
+
+function SearchGroup({ label, results }: { label: string; results: SearchResult[] }) {
+  if (!results.length) return null;
+  return <div className="mb-2 last:mb-0"><div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>{results.map((result) => <a key={`${result.type}-${result.id}`} href={result.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-accent"><div className="h-7 w-7 shrink-0 rounded-md bg-brand/10 text-brand grid place-items-center text-xs font-semibold">{result.avatarUrl ? <img src={result.avatarUrl} alt="" className="h-7 w-7 rounded-md" /> : result.type === "Issue" ? "#" : result.title.slice(0, 1).toUpperCase()}</div><div className="min-w-0"><div className="truncate text-sm font-medium">{result.title}</div><div className="truncate text-xs text-muted-foreground">{result.description}</div></div></a>)}</div>;
+}
+
 function useTheme() {
   const [theme, setTheme] = useState<AppSettings["theme"]>("system");
   const [dark, setDark] = useState(false);
@@ -62,6 +69,28 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const { dark, toggle } = useTheme();
   const [user, setUser] = useState<GitHubUserProfile | null>(null);
+  const [search, setSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<{ repositories: SearchResult[]; issues: SearchResult[]; users: SearchResult[] }>({ repositories: [], issues: [], users: [] });
+  const [notifications, setNotifications] = useState(0);
+
+  useEffect(() => {
+    if (search.trim().length < 2) { setSearchResults({ repositories: [], issues: [], users: [] }); return; }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(search.trim())}`, { credentials: "include", signal: controller.signal })
+        .then((response) => response.ok ? response.json() : null)
+        .then((data) => { if (data) setSearchResults(data); })
+        .catch(() => undefined);
+    }, 250);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [search]);
+
+  useEffect(() => {
+    fetch("/api/notifications", { credentials: "include" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (data) setNotifications(data.count); })
+      .catch(() => setNotifications(0));
+  }, []);
 
   useEffect(() => {
     // Try localStorage cache first for fast display
@@ -190,17 +219,24 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 placeholder="Search repos, issues, developers…"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                onFocus={(event) => { if (event.currentTarget.value.length >= 2) setSearch(event.currentTarget.value); }}
                 className="w-full h-9 pl-9 pr-3 rounded-lg bg-card border border-border text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand/40"
               />
+              {search.trim().length >= 2 && <div className="absolute left-0 right-0 top-11 z-50 max-h-96 overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-xl">
+                <SearchGroup label="Repositories" results={searchResults.repositories} />
+                <SearchGroup label="Issues" results={searchResults.issues} />
+                <SearchGroup label="Developers" results={searchResults.users} />
+                {!searchResults.repositories.length && !searchResults.issues.length && !searchResults.users.length && <div className="px-3 py-6 text-center text-sm text-muted-foreground">No GitHub results found.</div>}
+              </div>}
             </div>
             <button
               className="relative h-9 w-9 rounded-lg border border-border bg-card grid place-items-center hover:bg-accent transition"
               aria-label="Notifications"
             >
               <Bell className="h-4 w-4" />
-              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-danger text-white text-[10px] font-semibold grid place-items-center">
-                5
-              </span>
+              {notifications > 0 && <span className="absolute -top-1 -right-1 min-w-4 h-4 rounded-full bg-danger px-1 text-white text-[10px] font-semibold grid place-items-center">{notifications > 99 ? "99+" : notifications}</span>}
             </button>
             <button
               onClick={toggle}
@@ -210,21 +246,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
 
-            {user?.avatar_url ? (
-              <img
-                src={user.avatar_url}
-                alt={user.login}
-                className="h-9 w-9 rounded-full ring-2 ring-brand/30 object-cover shadow-md shadow-brand/25"
-                title={user.name || user.login}
-              />
-            ) : (
-              <div
-                className="h-9 w-9 rounded-full bg-brand-gradient text-white grid place-items-center text-xs font-semibold shadow-md shadow-brand/25"
-                title={user?.login || "User"}
-              >
-                {getInitials(user?.name, user?.login)}
-              </div>
-            )}
+            <a href={user?.html_url || (user?.login ? `https://github.com/${user.login}` : "https://github.com")} target="_blank" rel="noreferrer" aria-label="Open GitHub profile">
+              {user?.avatar_url ? <img src={user.avatar_url} alt={user.login} className="h-9 w-9 rounded-full ring-2 ring-brand/30 object-cover shadow-md shadow-brand/25" title={user.name || user.login} /> : <div className="h-9 w-9 rounded-full bg-brand-gradient text-white grid place-items-center text-xs font-semibold shadow-md shadow-brand/25" title={user?.login || "User"}>{getInitials(user?.name, user?.login)}</div>}
+            </a>
           </div>
         </header>
 
