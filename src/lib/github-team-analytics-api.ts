@@ -1,4 +1,5 @@
 import { extractGitHubToken } from "./github-api";
+import { calculateContributorScore } from "./contributor-scoring";
 
 export interface TeamAnalyticsApiData {
   repository: { fullName: string; name: string; url: string };
@@ -82,7 +83,7 @@ export async function handleGetTeamAnalytics(request: Request): Promise<Response
       const reviews = reviewsByLogin.get(login) ?? 0;
       const codeChanges = pullMetrics.filter(({ pull }) => pull.user?.login === login).reduce((total, { detail }) => total + (detail.additions ?? 0) + (detail.deletions ?? 0), 0);
       const commits = contributor.contributions ?? 0;
-      const score = Math.min(100, Math.round(Math.min(commits, 100) * 0.35 + Math.min(pullRequests * 5, 25) + Math.min(reviews * 3, 15) + Math.min(userIssues * 2, 10) + (mergedPullRequests ? 15 : 0)));
+      const score = calculateContributorScore({ commits, pullRequests, issues: userIssues, reviews });
       return { id: login, name: login, username: login, avatar: initials(login), avatarUrl: contributor.avatar_url ?? "", role: "GitHub Contributor", score, grade: grade(score), commits, issues: userIssues, pullRequests, reviews, aiActivityScore: 0, codeChanges, mergedPullRequests };
     });
     const sum = (key: "commits" | "issues" | "pullRequests" | "reviews") => developers.reduce((total, developer) => total + developer[key], 0);
