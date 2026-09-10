@@ -90,6 +90,12 @@ function Dashboard() {
     fetchDashboardData();
   }, []);
 
+  useEffect(() => {
+    const refresh = () => fetchDashboardData(true);
+    window.addEventListener("gitinsight-auto-refresh", refresh);
+    return () => window.removeEventListener("gitinsight-auto-refresh", refresh);
+  }, []);
+
   const progressColors = [
     "var(--color-brand)",
     "var(--color-brand-2)",

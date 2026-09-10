@@ -42,6 +42,16 @@ function Team() {
     teamAnalyticsService.getAnalytics({ repository, dateRange }).then(setData).catch((reason) => setError(reason instanceof Error ? reason.message : "Unable to load GitHub analytics.")).finally(() => setLoading(false));
   }, [repository, dateRange]);
 
+  useEffect(() => {
+    const refresh = () => {
+      if (!repository) return;
+      setLoading(true);
+      teamAnalyticsService.getAnalytics({ repository, dateRange }).then(setData).catch((reason) => setError(reason instanceof Error ? reason.message : "Unable to load GitHub analytics.")).finally(() => setLoading(false));
+    };
+    window.addEventListener("gitinsight-auto-refresh", refresh);
+    return () => window.removeEventListener("gitinsight-auto-refresh", refresh);
+  }, [repository, dateRange]);
+
   const contributors = data?.developers.filter((item) => developer === "all" || item.id === developer) ?? [];
   const overview = { developers: contributors.length, commits: contributors.reduce((sum, item) => sum + item.commits, 0), pullRequests: contributors.reduce((sum, item) => sum + item.pullRequests, 0), issues: contributors.reduce((sum, item) => sum + item.issues, 0), reviews: contributors.reduce((sum, item) => sum + item.reviews, 0), averageScore: contributors.length ? Math.round(contributors.reduce((sum, item) => sum + item.score, 0) / contributors.length) : 0 };
   const chartData = contributors.map((item) => ({ developer: item.username, value: item[metric] }));

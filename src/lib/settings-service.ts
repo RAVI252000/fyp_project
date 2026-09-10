@@ -2,6 +2,7 @@ export interface AppSettings {
   github: { connected: boolean; username: string; repositories: { name: string; connected: boolean }[] };
   ai: { provider: string; model: string; responseStyle: "Concise" | "Balanced" | "Detailed" };
   theme: "light" | "dark" | "system";
+  autoRefresh: { enabled: boolean; intervalMinutes: number };
   voice: { enabled: boolean; wakeWord: string; voice: string; speed: number; autoplay: boolean };
   notifications: { email: boolean; push: boolean; slack: boolean; events: Record<string, boolean>; quietFrom: string; quietTo: string };
   language: { interface: string; response: string };
@@ -13,6 +14,7 @@ export const defaultSettings: AppSettings = {
   github: { connected: true, username: "durgamohan06", repositories: [{ name: "auth-module", connected: true }, { name: "dashboard-ui", connected: true }, { name: "ai-engine", connected: false }] },
   ai: { provider: "OpenAI", model: "GPT-5.6 Luna", responseStyle: "Balanced" },
   theme: "system",
+  autoRefresh: { enabled: false, intervalMinutes: 60 },
   voice: { enabled: true, wakeWord: "GitInsight", voice: "Samantha", speed: 1, autoplay: false },
   notifications: { email: true, push: true, slack: true, events: { repository: true, issues: true, reviews: true, reports: true, summary: false }, quietFrom: "22:00", quietTo: "08:00" },
   language: { interface: "English (US)", response: "English" },
@@ -21,7 +23,7 @@ export const defaultSettings: AppSettings = {
 };
 
 const key = "gitinsight-settings";
-export function loadSettings(): AppSettings { if (typeof window === "undefined") return defaultSettings; try { return { ...defaultSettings, ...JSON.parse(localStorage.getItem(key) || "{}") }; } catch { return defaultSettings; } }
+export function loadSettings(): AppSettings { if (typeof window === "undefined") return defaultSettings; try { const stored = JSON.parse(localStorage.getItem(key) || "{}"); return { ...defaultSettings, ...stored, autoRefresh: { ...defaultSettings.autoRefresh, ...(stored.autoRefresh || {}) } }; } catch { return defaultSettings; } }
 export function saveSettings(settings: AppSettings) { if (typeof window !== "undefined") localStorage.setItem(key, JSON.stringify(settings)); }
 export function applyTheme(theme: AppSettings["theme"]) {
   if (typeof document === "undefined") return;

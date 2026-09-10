@@ -110,6 +110,12 @@ function Repositories() {
   }, []);
 
   useEffect(() => {
+    const refresh = () => fetchRepositories();
+    window.addEventListener("gitinsight-auto-refresh", refresh);
+    return () => window.removeEventListener("gitinsight-auto-refresh", refresh);
+  }, []);
+
+  useEffect(() => {
     const handleGlobalSearch = (event: Event) => {
       const query = (event as CustomEvent<string>).detail;
       setSearchTerm(typeof query === "string" ? query : "");

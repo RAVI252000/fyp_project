@@ -76,6 +76,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [platformRepositories, setPlatformRepositories] = useState<SearchResult[]>([]);
   const [notifications, setNotifications] = useState(0);
+  const [refreshSettingsVersion, setRefreshSettingsVersion] = useState(0);
+
+  useEffect(() => {
+    const settings = loadSettings();
+    if (!settings.autoRefresh.enabled) return;
+    const timer = window.setInterval(() => window.dispatchEvent(new CustomEvent("gitinsight-auto-refresh")), settings.autoRefresh.intervalMinutes * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [refreshSettingsVersion]);
+
+  useEffect(() => {
+    const restart = () => setRefreshSettingsVersion((version) => version + 1);
+    window.addEventListener("gitinsight-settings-saved", restart);
+    return () => window.removeEventListener("gitinsight-settings-saved", restart);
+  }, []);
 
   useEffect(() => {
     const query = search.trim().toLowerCase();
