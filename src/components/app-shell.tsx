@@ -30,11 +30,11 @@ const nav = [
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
-type SearchResult = { id: number; title: string; description?: string | null; url: string; avatarUrl?: string; type: string };
+type SearchResult = { id: string | number; title: string; description?: string | null; url: string; avatarUrl?: string; type: string };
 
 function SearchGroup({ label, results }: { label: string; results: SearchResult[] }) {
   if (!results.length) return null;
-  return <div className="mb-2 last:mb-0"><div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>{results.map((result) => <a key={`${result.type}-${result.id}`} href={result.url} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-accent"><div className="h-7 w-7 shrink-0 rounded-md bg-brand/10 text-brand grid place-items-center text-xs font-semibold">{result.avatarUrl ? <img src={result.avatarUrl} alt="" className="h-7 w-7 rounded-md" /> : result.type === "Issue" ? "#" : result.title.slice(0, 1).toUpperCase()}</div><div className="min-w-0"><div className="truncate text-sm font-medium">{result.title}</div><div className="truncate text-xs text-muted-foreground">{result.description}</div></div></a>)}</div>;
+  return <div className="mb-2 last:mb-0"><div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>{results.map((result) => <a key={`${result.type}-${result.id}`} href={result.url} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-accent"><div className="h-7 w-7 shrink-0 rounded-md bg-brand/10 text-brand grid place-items-center text-xs font-semibold">{result.avatarUrl ? <img src={result.avatarUrl} alt="" className="h-7 w-7 rounded-md" /> : result.title.slice(0, 1).toUpperCase()}</div><div className="min-w-0"><div className="truncate text-sm font-medium">{result.title}</div><div className="truncate text-xs text-muted-foreground">{result.description}</div></div></a>)}</div>;
 }
 
 function useTheme() {
@@ -71,19 +71,38 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<GitHubUserProfile | null>(null);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<{ repositories: SearchResult[]; issues: SearchResult[]; users: SearchResult[] }>({ repositories: [], issues: [], users: [] });
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [platformRepositories, setPlatformRepositories] = useState<SearchResult[]>([]);
   const [notifications, setNotifications] = useState(0);
 
   useEffect(() => {
-    if (search.trim().length < 2) { setSearchResults({ repositories: [], issues: [], users: [] }); return; }
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      fetch(`/api/search?q=${encodeURIComponent(search.trim())}`, { credentials: "include", signal: controller.signal })
-        .then((response) => response.ok ? response.json() : null)
-        .then((data) => { if (data) setSearchResults(data); })
-        .catch(() => undefined);
-    }, 250);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [search]);
+    const query = search.trim().toLowerCase();
+    if (query.length < 1) { setSearchResults({ repositories: [], issues: [], users: [] }); setSearchError(""); setSearching(false); return; }
+    setSearching(true);
+    const features: SearchResult[] = nav.filter((item) => `${item.label} ${item.to}`.toLowerCase().includes(query)).map((item) => ({ id: item.to, title: item.label, description: `Open ${item.label}`, url: item.to, type: "GitInsight feature" }));
+    const repositories = platformRepositories.filter((item) => `${item.title} ${item.description ?? ""}`.toLowerCase().includes(query));
+    setSearchResults({ repositories, issues: features, users: [] });
+    setSearchError("");
+    setSearching(false);
+  }, [search, platformRepositories]);
+
+  useEffect(() => {
+    fetch("/api/repos", { credentials: "include" }).then((response) => response.ok ? response.json() : null).then((data) => {
+      const repositories = data?.data ?? [];
+      setPlatformRepositories(repositories.map((repository: { id: number; name: string; full_name: string; description?: string | null }) => ({ id: repository.id, title: repository.full_name, description: repository.description ?? "Repository", url: `/repositories/${encodeURIComponent(repository.name)}`, type: "Repository" })));
+    }).catch(() => setPlatformRepositories([]));
+  }, []);
+
+  useEffect(() => {
+    const handleRepositorySearch = (event: Event) => {
+      const query = (event as CustomEvent<string>).detail;
+      if (typeof query === "string") setSearch(query);
+    };
+    window.addEventListener("gitinsight-repository-search", handleRepositorySearch);
+    return () => window.removeEventListener("gitinsight-repository-search", handleRepositorySearch);
+  }, []);
 
   useEffect(() => {
     fetch("/api/notifications", { credentials: "include" })
@@ -218,17 +237,31 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="relative flex-1 max-w-md ml-auto md:ml-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
-                placeholder="Search repos, issues, developers…"
+                placeholder="Search GitInsight features and repositories…"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                onFocus={(event) => { if (event.currentTarget.value.length >= 2) setSearch(event.currentTarget.value); }}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setSearch(value);
+                  setSearchOpen(true);
+                  window.dispatchEvent(new CustomEvent("gitinsight-global-search", { detail: value }));
+                }}
+                onFocus={() => setSearchOpen(true)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") { setSearchOpen(false); event.currentTarget.blur(); }
+                  if (event.key === "Enter") {
+                    const first = searchResults.repositories[0] ?? searchResults.issues[0] ?? searchResults.users[0];
+                    if (first) window.open(first.url, "_blank", "noopener,noreferrer");
+                  }
+                }}
                 className="w-full h-9 pl-9 pr-3 rounded-lg bg-card border border-border text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand/40"
               />
-              {search.trim().length >= 2 && <div className="absolute left-0 right-0 top-11 z-50 max-h-96 overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-xl">
+              {search && <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label="Clear global search" onClick={() => { setSearch(""); setSearchOpen(false); window.dispatchEvent(new CustomEvent("gitinsight-global-search", { detail: "" })); }}><X className="h-4 w-4" /></button>}
+              {searchOpen && search.trim().length >= 1 && <div className="absolute left-0 right-0 top-11 z-50 max-h-96 overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-xl">
+                {searching && <div className="px-3 py-4 text-center text-sm text-muted-foreground">Searching GitHub...</div>}
+                {searchError && <div className="px-3 py-4 text-center text-sm text-danger">{searchError}</div>}
                 <SearchGroup label="Repositories" results={searchResults.repositories} />
-                <SearchGroup label="Issues" results={searchResults.issues} />
-                <SearchGroup label="Developers" results={searchResults.users} />
-                {!searchResults.repositories.length && !searchResults.issues.length && !searchResults.users.length && <div className="px-3 py-6 text-center text-sm text-muted-foreground">No GitHub results found.</div>}
+                <SearchGroup label="GitInsight features" results={searchResults.issues} />
+                {!searching && !searchError && !searchResults.repositories.length && !searchResults.issues.length && !searchResults.users.length && <div className="px-3 py-6 text-center text-sm text-muted-foreground">No GitHub results found.</div>}
               </div>}
             </div>
             <button

@@ -109,6 +109,15 @@ function Repositories() {
     fetchRepositories(savedToken);
   }, []);
 
+  useEffect(() => {
+    const handleGlobalSearch = (event: Event) => {
+      const query = (event as CustomEvent<string>).detail;
+      setSearchTerm(typeof query === "string" ? query : "");
+    };
+    window.addEventListener("gitinsight-global-search", handleGlobalSearch);
+    return () => window.removeEventListener("gitinsight-global-search", handleGlobalSearch);
+  }, []);
+
   const handleSaveToken = (e: React.FormEvent) => {
     e.preventDefault();
     const token = customToken.trim();
@@ -279,7 +288,10 @@ function Repositories() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  window.dispatchEvent(new CustomEvent("gitinsight-repository-search", { detail: e.target.value }));
+                }}
                 placeholder="Filter repositories by name, owner, or description…"
                 className="w-full h-10 pl-9 pr-3 rounded-lg bg-background border border-border text-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
               />

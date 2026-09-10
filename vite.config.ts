@@ -9,6 +9,7 @@ import { nodeDashboardHandler } from "./src/lib/dashboard-api";
 import { nodeRepoInsightsHandler } from "./src/lib/repo-insights";
 import { nodeRepoDetailHandler } from "./src/lib/repo-detail-api";
 import { nodeAuthRouter } from "./src/lib/github-oauth";
+import { nodeGlobalSearchHandler, nodeNotificationsHandler } from "./src/lib/github-global-api";
 
 const apiDevPlugin: Plugin = {
   name: "api-dev-routes",
@@ -24,6 +25,12 @@ const apiDevPlugin: Plugin = {
     });
     server.middlewares.use("/api/repos", async (req, res) => {
       await nodeApiReposHandler(req, res);
+    });
+    server.middlewares.use("/api/search", async (req, res) => {
+      await nodeGlobalSearchHandler(req, res);
+    });
+    server.middlewares.use("/api/notifications", async (req, res) => {
+      await nodeNotificationsHandler(req, res);
     });
     server.middlewares.use("/api/auth", async (req, res, next) => {
       await nodeAuthRouter(req, res, next);
